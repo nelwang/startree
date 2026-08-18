@@ -46,6 +46,7 @@
         {
           "binding": "DB",
           "database_name": "startree-preview",
+          "database_id": "00000000-0000-4000-8000-000000000021",
           "migrations_dir": "./migrations",
         },
       ],
