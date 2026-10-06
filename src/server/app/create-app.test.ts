@@ -123,6 +123,18 @@ describe('platform API', () => {
     await expect(response.text()).resolves.toBe('asset');
   });
 
+  it('returns the complete snapshot when the client revision is stale', async () => {
+    const response = await createTestApp().request(
+      '/api/bookmarks/snapshot',
+      { headers: { 'If-None-Match': '"bookmarks-1-6"' } },
+      bindings,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('etag')).toBe('"bookmarks-1-7"');
+    await expect(response.json()).resolves.toEqual(snapshot);
+  });
+
   it('returns the shared validated Bookmark snapshot with a private ETag', async () => {
     const response = await createTestApp().request('/api/bookmarks/snapshot', undefined, bindings);
 
@@ -132,8 +144,14 @@ describe('platform API', () => {
     await expect(response.json()).resolves.toEqual(snapshot);
   });
 
-  it('returns 304 when the Bookmark snapshot ETag matches', async () => {
-    const response = await createTestApp().request(
+  it('confirms a matching Bookmark snapshot ETag without reading the snapshot', async () => {
+    const app = createApp<typeof bindings>({
+      readBookmarkRevision: () => Promise.resolve(7),
+      readBookmarkSnapshot: () => Promise.reject(new Error('The snapshot must not be read.')),
+      readBookmarkTrash: () => Promise.resolve(trash),
+      executeBookmarkCommand: () => Promise.reject(new Error('Not used.')),
+    });
+    const response = await app.request(
       '/api/bookmarks/snapshot',
       { headers: { 'If-None-Match': '"bookmarks-1-7"' } },
       bindings,

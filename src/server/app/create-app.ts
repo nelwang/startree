@@ -6,7 +6,6 @@ import {
   bookmarkCommandResultSchema,
   bookmarkCommandSchema,
   bookmarkSnapshotEtag,
-  bookmarkSnapshotSchema,
   bookmarkTrashEtag,
   bookmarkTrashSchema,
   type BookmarkCommand,
@@ -73,17 +72,18 @@ export const createApp = <Bindings extends CoreBindings>(services: AppServices<B
   });
 
   app.get('/api/bookmarks/snapshot', async (context) => {
-    const snapshot = v.parse(
-      bookmarkSnapshotSchema,
-      await services.readBookmarkSnapshot(context.env),
-    );
-    const etag = bookmarkSnapshotEtag(snapshot.revision);
-    context.header('ETag', etag);
-
-    if (context.req.header('If-None-Match') === etag) {
-      return context.body(null, 304);
+    // Most requests come from retained clients, so confirm them from the revision alone.
+    const ifNoneMatch = context.req.header('If-None-Match');
+    if (ifNoneMatch) {
+      const etag = bookmarkSnapshotEtag(await services.readBookmarkRevision(context.env));
+      if (ifNoneMatch === etag) {
+        context.header('ETag', etag);
+        return context.body(null, 304);
+      }
     }
 
+    const snapshot = await services.readBookmarkSnapshot(context.env);
+    context.header('ETag', bookmarkSnapshotEtag(snapshot.revision));
     return context.json(snapshot);
   });
 
