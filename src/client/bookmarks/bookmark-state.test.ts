@@ -772,6 +772,42 @@ describe('Bookmark state Module Interface', () => {
     state.dispose();
   });
 
+  it('rolls back a rejected optimistic creation without keeping the added record', async () => {
+    let rejectCreation: ((reason: Error) => void) | undefined;
+    const remote = createMemoryBookmarkRemoteAdapter(snapshot());
+    remote.executeCommand = () =>
+      new Promise((_resolve, reject) => {
+        rejectCreation = reject;
+      });
+    const state = createBookmarkState({
+      remote,
+      storage: createMemoryBookmarkStorageAdapter(),
+      lifecycle: createMemoryBookmarkLifecycleAdapter(),
+    });
+    await state.initialize({ folderId });
+    const before = state.getState().bookmarks.map((bookmark) => bookmark.id);
+
+    const creation = state.executeCommand({
+      type: 'createBookmark',
+      operationId: 'a0000000-0000-4000-8000-000000000020',
+      folderId,
+      expectedBookmarkSequenceVersion: 1,
+      url: 'https://optimistic.example/',
+      title: 'Optimistic',
+      note: '',
+      tags: ['draft'],
+    });
+    await vi.waitFor(() =>
+      expect(state.getState().bookmarks.map((bookmark) => bookmark.title)).toContain('Optimistic'),
+    );
+    rejectCreation?.(new Error('rejected'));
+    await creation;
+
+    expect(state.getState().writeStatus).toBe('failed');
+    expect(state.getState().bookmarks.map((bookmark) => bookmark.id)).toEqual(before);
+    state.dispose();
+  });
+
   it('optimistically moves a record and rolls back a rejected organization command', async () => {
     let rejectMove: ((reason: Error) => void) | undefined;
     const remote = createMemoryBookmarkRemoteAdapter(snapshot());

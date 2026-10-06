@@ -629,8 +629,16 @@ export const createBookmarkState = (adapters: {
       emit();
       return null;
     }
-    const priorSnapshot = structuredClone(state.snapshot);
-    state.snapshot = structuredClone(state.snapshot);
+    // Optimistic updates add or replace records but never mutate them, so copying the arrays
+    // keeps the prior snapshot intact without cloning the whole library.
+    const priorSnapshot = state.snapshot;
+    state.snapshot = {
+      ...priorSnapshot,
+      folders: [...priorSnapshot.folders],
+      bookmarks: [...priorSnapshot.bookmarks],
+      tags: [...priorSnapshot.tags],
+      sequences: [...priorSnapshot.sequences],
+    };
     applyOptimisticCommand(command);
     state.writeStatus = 'pending';
     state.writeMessage = 'Saving changes…';
