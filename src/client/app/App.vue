@@ -3,6 +3,10 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type Componen
 
 import BookmarksPage from '../bookmarks/BookmarksPage.vue';
 import { resolvePagePath } from './routes';
+import { useTheme } from './theme';
+
+const { selection, setTheme } = useTheme();
+const palettes = ['Forest', 'Ocean', 'Dune', 'Dusk'];
 
 import { createIndexedDbBookmarkAdapter } from '../bookmarks/bookmark-adapters';
 import { clearLocalApplicationData } from './local-data';
@@ -112,6 +116,17 @@ const clearAndLogOut = async () => {
         >
       </nav>
       <div class="session-actions">
+        <label class="theme-control">
+          <span class="palette-swatch" aria-hidden="true"></span>
+          <span class="visually-hidden">Theme</span>
+          <select :value="selection" @change="setTheme(($event.target as HTMLSelectElement).value)">
+            <optgroup v-for="palette in palettes" :key="palette" :label="palette">
+              <option :value="`${palette.toLowerCase()}:system`">{{ palette }} · System</option>
+              <option :value="`${palette.toLowerCase()}:light`">{{ palette }} · Light</option>
+              <option :value="`${palette.toLowerCase()}:dark`">{{ palette }} · Dark</option>
+            </optgroup>
+          </select>
+        </label>
         <button
           type="button"
           :disabled="loggingOut"

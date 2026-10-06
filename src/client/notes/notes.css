@@ -1,27 +1,27 @@
 .notes-page {
   padding: 20px 28px;
-  color: #263a2d;
+  color: var(--text);
 }
 .notes-page button {
   cursor: pointer;
-  border: 1px solid #dce3da;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 7px 10px;
-  background: white;
-  color: #49624f;
+  background: var(--surface);
+  color: var(--muted);
   font-size: 12px;
 }
 .notes-page button:hover {
-  background: #edf3ea;
+  background: var(--hover);
 }
 .notes-page button:disabled {
   opacity: 0.6;
   cursor: wait;
 }
 .notes-page .notes-primary {
-  color: white;
-  background: #365d49;
-  border-color: #365d49;
+  color: var(--on-accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 .notes-page-heading {
   display: flex;
@@ -39,8 +39,8 @@
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0;
-  background: #e9efe7;
-  color: #55705b;
+  background: var(--accent-soft);
+  color: var(--muted);
   padding: 4px 7px;
   border-radius: 4px;
   vertical-align: middle;
@@ -53,7 +53,7 @@
 }
 .notes-save-status {
   font-size: 11px;
-  color: #576d59;
+  color: var(--muted);
   margin-right: 6px;
 }
 .notes-layout {
@@ -61,17 +61,17 @@
   grid-template-columns: 260px minmax(0, 1fr);
   height: calc(100dvh - 126px);
   min-height: 360px;
-  border: 1px solid #dfe5dc;
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: white;
+  background: var(--surface);
   overflow: hidden;
 }
 .notes-list {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #fafbf8;
-  border-right: 1px solid #e0e5dc;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
 }
 .notes-list-toolbar {
   display: flex;
@@ -81,10 +81,10 @@
 .notes-list-toolbar input {
   min-width: 0;
   width: 100%;
-  border: 1px solid #dfe5dc;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px;
-  background: white;
+  background: var(--surface);
   font: inherit;
   font-size: 12px;
 }
@@ -95,7 +95,7 @@
   display: flex;
   justify-content: space-between;
   padding: 0 14px 10px;
-  color: #5e6a58;
+  color: var(--muted);
   font-size: 10px;
 }
 .notes-list-items {
@@ -112,19 +112,19 @@
   margin-bottom: 3px;
 }
 .notes-page .notes-list-item.selected {
-  background: #eaf0e6;
-  border-color: #dce5d6;
+  background: var(--accent-soft);
+  border-color: var(--border);
 }
 .notes-list-item strong {
   display: block;
-  color: #344a39;
+  color: var(--text);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .notes-list-item p {
-  color: #5e6a58;
+  color: var(--muted);
   font-size: 11px;
   margin: 6px 0 8px;
   overflow: hidden;
@@ -132,12 +132,12 @@
   white-space: nowrap;
 }
 .notes-list-item time {
-  color: #5e6a58;
+  color: var(--muted);
   font-size: 10px;
 }
 .notes-list-empty {
   padding: 18px;
-  color: #5e6a58;
+  color: var(--muted);
   font-size: 12px;
 }
 .notes-editor {
@@ -151,9 +151,9 @@
   align-items: center;
   gap: 8px;
   padding: 8px 18px;
-  border-bottom: 1px solid #f0f2ed;
+  border-bottom: 1px solid var(--border);
   font-size: 10px;
-  color: #5e6a58;
+  color: var(--muted);
 }
 .notes-page .notes-delete {
   border: 0;
@@ -169,7 +169,7 @@
   font-size: 25px;
   font-weight: 600;
   letter-spacing: -0.5px;
-  color: #293f30;
+  color: var(--text);
   min-width: 0;
 }
 .notes-body-input {
@@ -181,7 +181,7 @@
   font: inherit;
   font-size: 14px;
   line-height: 1.85;
-  color: #40523f;
+  color: var(--text);
   background: transparent;
 }
 .notes-body-input:focus-visible,
@@ -190,9 +190,9 @@
 }
 .notes-editor-footer {
   padding: 8px 18px;
-  border-top: 1px solid #f0f2ed;
+  border-top: 1px solid var(--border);
   font-size: 10px;
-  color: #5e6a58;
+  color: var(--muted);
   text-align: right;
 }
 .notes-back {
@@ -214,7 +214,7 @@
   letter-spacing: -0.5px;
 }
 .notes-unlock-card p {
-  color: #5e6a58;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.8;
 }
@@ -222,7 +222,7 @@
   display: block;
   text-align: left;
   font-size: 12px;
-  color: #50644c;
+  color: var(--muted);
   margin: 16px 0;
 }
 .notes-unlock-card input,
@@ -231,11 +231,11 @@
   padding: 11px;
   width: 100%;
   margin-top: 7px;
-  border: 1px solid #dbe3d5;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   font: inherit;
   font-size: 13px;
-  background: white;
+  background: var(--surface);
 }
 .notes-unlock-card .notes-primary {
   width: 100%;
@@ -253,15 +253,15 @@
 .notes-lock-icon {
   width: 34px;
   height: 34px;
-  color: #55765b;
+  color: var(--accent);
   margin-bottom: 20px;
 }
 .notes-recovery-key {
   display: block;
   padding: 16px;
-  border: 1px dashed #95ad8b;
+  border: 1px dashed var(--border-strong);
   border-radius: 6px;
-  background: white;
+  background: var(--surface);
   overflow-wrap: anywhere;
   line-height: 1.8;
   font-size: 13px;
@@ -277,8 +277,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 9px;
-  border: 1px solid #d6dfce;
-  background: #f0f4eb;
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
   padding: 12px;
   margin-bottom: 12px;
   border-radius: 6px;
@@ -286,15 +286,15 @@
   line-height: 1.5;
 }
 .notes-message.error {
-  background: #fff4ee;
-  border-color: #e5cabb;
-  color: #805536;
+  background: var(--warning-soft);
+  border-color: var(--warning-border);
+  color: var(--warning);
 }
 .notes-empty {
   margin: auto;
   padding: 32px;
   text-align: center;
-  color: #6f8068;
+  color: var(--muted);
   font-size: 13px;
 }
 .notes-empty h2 {
@@ -357,7 +357,7 @@
 
 .notes-history {
   padding: 12px;
-  background: #edf2ec;
+  background: var(--subtle);
   display: grid;
   gap: 8px;
   max-height: 45%;
@@ -381,12 +381,12 @@
   background: #0005;
 }
 .notes-leave-dialog {
-  background: white;
-  color: #202b22;
+  background: var(--surface);
+  color: var(--text);
   padding: 24px;
   border-radius: 12px;
   max-width: calc(100vw - 32px);
-  border: 1px solid #dce3da;
+  border: 1px solid var(--border);
 }
 .notes-leave-dialog[open] {
   display: grid;
@@ -404,7 +404,7 @@
 .notes-page-unlocked {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 46px);
+  height: calc(100dvh - var(--app-bar-height));
   min-height: 420px;
 }
 .notes-page-unlocked > .notes-layout {
