@@ -181,6 +181,139 @@ describe('production Bookmark adapters', () => {
     });
   });
 
+  it('removes superseded snapshots of its format and keeps other formats', async () => {
+    const indexedDb = new IDBFactory();
+    const databaseName = 'startree-superseded';
+    const adapter = createIndexedDbBookmarkAdapter(indexedDb, databaseName);
+    await adapter.writeSnapshot(snapshot(1), { synchronizedAt: '2026-08-18T20:00:00.000Z' });
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDb.open(databaseName, 3);
+      request.addEventListener('success', () => resolve(request.result), { once: true });
+      request.addEventListener('error', () => reject(request.error), { once: true });
+    });
+    const foreign = database.transaction('completeSnapshots', 'readwrite');
+    foreign.objectStore('completeSnapshots').put({
+      key: '99:7',
+      wireFormatVersion: 99,
+      revision: 7,
+      snapshot: { wireFormatVersion: 99, revision: 7 },
+    });
+    await new Promise<void>((resolve, reject) => {
+      foreign.addEventListener('complete', () => resolve(), { once: true });
+      foreign.addEventListener('error', () => reject(foreign.error), { once: true });
+    });
+
+    await adapter.writeSnapshot(snapshot(2), { synchronizedAt: '2026-08-18T21:00:00.000Z' });
+    await adapter.writeSnapshot(snapshot(3), { synchronizedAt: '2026-08-18T22:00:00.000Z' });
+
+    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const read = database
+        .transaction('completeSnapshots', 'readonly')
+        .objectStore('completeSnapshots')
+        .getAllKeys();
+      read.addEventListener('success', () => resolve(read.result), { once: true });
+      read.addEventListener('error', () => reject(read.error), { once: true });
+    });
+    expect([...keys].sort()).toEqual(['1:3', '99:7']);
+    await expect(adapter.readSnapshot()).resolves.toMatchObject({ snapshot: snapshot(3) });
+    database.close();
+  });
+
+  describe('retained snapshot validation', () => {
+    const databaseName = 'startree-schema';
+    const openDatabase = (indexedDb: IDBFactory) =>
+      new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDb.open(databaseName, 3);
+        request.addEventListener('success', () => resolve(request.result), { once: true });
+        request.addEventListener('error', () => reject(request.error), { once: true });
+      });
+    const request = <Result>(read: IDBRequest<Result>) =>
+      new Promise<Result>((resolve, reject) => {
+        read.addEventListener('success', () => resolve(read.result), { once: true });
+        read.addEventListener('error', () => reject(read.error), { once: true });
+      });
+    const replaceActiveRecord = async (indexedDb: IDBFactory, record: Record<string, unknown>) => {
+      const database = await openDatabase(indexedDb);
+      const transaction = database.transaction('completeSnapshots', 'readwrite');
+      transaction.objectStore('completeSnapshots').put({ key: '1:1', ...record });
+      await new Promise<void>((resolve, reject) => {
+        transaction.addEventListener('complete', () => resolve(), { once: true });
+        transaction.addEventListener('error', () => reject(transaction.error), { once: true });
+      });
+      return database;
+    };
+    const storedSchemaId = async (database: IDBDatabase) =>
+      (
+        await request<{ schemaId?: string } | undefined>(
+          database.transaction('completeSnapshots').objectStore('completeSnapshots').get('1:1'),
+        )
+      )?.schemaId;
+    const invalid = () => ({
+      ...snapshot(1),
+      bookmarks: [{ ...snapshot(1).folders[0], url: 'not a URL' }],
+    });
+
+    it('validates records from shells built with another contract', async () => {
+      const indexedDb = new IDBFactory();
+      const adapter = createIndexedDbBookmarkAdapter(indexedDb, databaseName);
+      await adapter.writeSnapshot(snapshot(1), { synchronizedAt: '2026-08-18T20:00:00.000Z' });
+      const database = await replaceActiveRecord(indexedDb, {
+        wireFormatVersion: 1,
+        revision: 1,
+        snapshot: invalid(),
+        schemaId: 'another-contract',
+      });
+
+      await expect(adapter.readSnapshot()).resolves.toEqual({
+        status: 'incompatible',
+        wireFormatVersion: 1,
+      });
+      expect(await storedSchemaId(database)).toBe('another-contract');
+      database.close();
+    });
+
+    it('trusts records written by a shell with this contract', async () => {
+      const indexedDb = new IDBFactory();
+      const adapter = createIndexedDbBookmarkAdapter(indexedDb, databaseName);
+      await adapter.writeSnapshot(snapshot(1), { synchronizedAt: '2026-08-18T20:00:00.000Z' });
+      const database = await openDatabase(indexedDb);
+      const schemaId = await storedSchemaId(database);
+      expect(schemaId).toEqual(expect.any(String));
+      await replaceActiveRecord(indexedDb, {
+        wireFormatVersion: 1,
+        revision: 1,
+        snapshot: invalid(),
+        schemaId,
+      });
+
+      await expect(adapter.readSnapshot()).resolves.toMatchObject({
+        status: 'compatible',
+        snapshot: invalid(),
+      });
+      database.close();
+    });
+
+    it('marks a valid record from an older shell after validating it once', async () => {
+      const indexedDb = new IDBFactory();
+      const adapter = createIndexedDbBookmarkAdapter(indexedDb, databaseName);
+      await adapter.writeSnapshot(snapshot(1), { synchronizedAt: '2026-08-18T20:00:00.000Z' });
+      const database = await openDatabase(indexedDb);
+      const schemaId = await storedSchemaId(database);
+      await replaceActiveRecord(indexedDb, {
+        wireFormatVersion: 1,
+        revision: 1,
+        snapshot: snapshot(1),
+      });
+
+      await expect(adapter.readSnapshot()).resolves.toMatchObject({
+        status: 'compatible',
+        snapshot: snapshot(1),
+      });
+      await vi.waitFor(async () => expect(await storedSchemaId(database)).toBe(schemaId));
+      database.close();
+    });
+  });
+
   it('retains the prior complete snapshot when replacement is interrupted', async () => {
     const indexedDb = new IDBFactory();
     const adapter = createIndexedDbBookmarkAdapter(indexedDb, 'startree-interrupted');

@@ -39,3 +39,13 @@ node scripts/measure-startup.mjs
 - `src/client/bookmarks/FolderTree.vue` repeatedly scans the Folder array for children. A shared parent-to-children index may help wide or heavily expanded trees. Profile those cases before changing the tree interface.
 
 These opportunities were identified by inspection and are not included in the measured speedup.
+
+## Retained snapshot validation follow-up
+
+Validating a 10,000-Bookmark snapshot with Valibot takes about 90 ms on a development machine. Retained startup validated the IndexedDB snapshot before the first render, and the snapshot endpoint validated the complete snapshot twice, even when it returned `304`.
+
+- Snapshot records now carry a schema ID. The build derives it from the snapshot contract sources and the Valibot version. A record whose ID matches the running shell is used without validation, because that shell validated it before storing it. Records from shells built with another contract are still validated, so older tabs that strip newer fields remain detectable. A valid record from a shell that predates schema IDs is marked once, unless another tab replaced the active snapshot in the meantime.
+- Writing a snapshot removes superseded records of the same wire format. Records of other formats stay, because they belong to newer or older shells.
+- When `If-None-Match` matches, the snapshot endpoint now confirms it from the revision alone. It no longer reads and validates the complete snapshot. The service validates a complete response once.
+
+With `node scripts/measure-startup.mjs` alternating two builds on one machine, the median retained time to browsable content fell from 258 ms and 270 ms to 194 ms and 164 ms. Cold startup did not change.

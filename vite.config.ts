@@ -1,8 +1,23 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite-plus';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Changes whenever the snapshot contract source changes, so retained snapshots written by a
+// shell with a different contract are always validated again.
+const bookmarkSnapshotSchemaId = createHash('sha256')
+  .update(readFileSync('src/shared/bookmarks/contracts.ts'))
+  .update(readFileSync('src/shared/bookmarks/constants.ts'))
+  .update(readFileSync('node_modules/valibot/package.json'))
+  .digest('hex')
+  .slice(0, 16);
+
 export default defineConfig({
+  define: {
+    __BOOKMARK_SNAPSHOT_SCHEMA_ID__: JSON.stringify(bookmarkSnapshotSchemaId),
+  },
   plugins: [
     vue(),
     VitePWA({

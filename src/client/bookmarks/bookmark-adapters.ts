@@ -142,6 +142,8 @@ type CompleteSnapshotRecord = {
   revision: number;
   snapshot: unknown;
   synchronizedAt?: string;
+  // Set only by shells built from this exact snapshot contract.
+  schemaId?: string;
 };
 
 type UnconfirmedOperationRecord = {
@@ -238,6 +240,28 @@ export const createIndexedDbBookmarkAdapter = (
     return setting?.value;
   };
 
+  // Records from shells that predate schema IDs are validated once and then marked, unless
+  // another tab replaced the active snapshot meanwhile.
+  const stampValidatedSnapshot = async (key: string, snapshot: BookmarkSnapshot) => {
+    const database = await databasePromise;
+    const transaction = database.transaction(['settings', 'completeSnapshots'], 'readwrite');
+    const completeSnapshots = transaction.objectStore('completeSnapshots');
+    const [activeKey, record] = await Promise.all([
+      indexedDbRequest<Setting | undefined>(
+        transaction.objectStore('settings').get('activeSnapshotKey'),
+      ),
+      indexedDbRequest<CompleteSnapshotRecord | undefined>(completeSnapshots.get(key)),
+    ]);
+    if (activeKey?.value === key && record && record.schemaId === undefined) {
+      completeSnapshots.put({
+        ...record,
+        snapshot,
+        schemaId: __BOOKMARK_SNAPSHOT_SCHEMA_ID__,
+      } satisfies CompleteSnapshotRecord);
+    }
+    await transactionComplete(transaction);
+  };
+
   return {
     async readRecentBookmarks() {
       return normalizeRecentBookmarks(await readSetting(RECENT_BOOKMARKS_SETTING));
@@ -285,7 +309,15 @@ export const createIndexedDbBookmarkAdapter = (
             typeof record.wireFormatVersion === 'number' ? record.wireFormatVersion : null,
         } satisfies StoredBookmarkSnapshot;
       }
-      const result = v.safeParse(bookmarkSnapshotSchema, record.snapshot);
+      // Validating 10,000 Bookmarks takes about 90 ms before the first render. Records written
+      // by a shell with this contract were validated before they were stored.
+      const result =
+        record.schemaId === __BOOKMARK_SNAPSHOT_SCHEMA_ID__
+          ? { success: true as const, output: record.snapshot as BookmarkSnapshot }
+          : v.safeParse(bookmarkSnapshotSchema, record.snapshot);
+      if (result.success && record.schemaId === undefined) {
+        void stampValidatedSnapshot(key, result.output).catch(() => undefined);
+      }
       const synchronized = v.safeParse(snapshotSynchronizationSchema, synchronization?.value);
       return result.success
         ? ({
@@ -306,12 +338,31 @@ export const createIndexedDbBookmarkAdapter = (
       const database = await databasePromise;
       const transaction = database.transaction(['completeSnapshots', 'settings'], 'readwrite');
       const key = snapshotKey(snapshot);
-      transaction.objectStore('completeSnapshots').put({
+      const completeSnapshots = transaction.objectStore('completeSnapshots');
+      // Superseded revisions of this format are never read again. Other formats belong to
+      // newer or older shells and stay untouched.
+      const keysRequest = completeSnapshots.getAllKeys();
+      keysRequest.addEventListener(
+        'success',
+        () => {
+          for (const existing of keysRequest.result) {
+            if (
+              typeof existing === 'string' &&
+              existing !== key &&
+              existing.startsWith(`${snapshot.wireFormatVersion}:`)
+            )
+              completeSnapshots.delete(existing);
+          }
+        },
+        { once: true },
+      );
+      completeSnapshots.put({
         key,
         wireFormatVersion: snapshot.wireFormatVersion,
         revision: snapshot.revision,
         snapshot,
         synchronizedAt: metadata.synchronizedAt,
+        schemaId: __BOOKMARK_SNAPSHOT_SCHEMA_ID__,
       } satisfies CompleteSnapshotRecord);
       const settings = transaction.objectStore('settings');
       settings.put({ key: 'activeSnapshotKey', value: key } satisfies Setting);
