@@ -14,6 +14,8 @@ import {
 } from '../../shared/bookmarks/contracts';
 import {
   normalizeRecentBookmarks,
+  RECENT_BOOKMARK_ENTRY_PREFIX,
+  RECENT_BOOKMARKS_LIMIT,
   RECENT_BOOKMARKS_SETTING,
   type RecentBookmarkStorage,
 } from './recent-bookmarks';
@@ -153,6 +155,10 @@ type UnconfirmedOperationRecord = {
 };
 
 const BOOKMARK_DATABASE_VERSION = 3;
+const recentOpeningSchema = v.object({
+  id: v.pipe(v.string(), v.minLength(1)),
+  openedAt: v.number(),
+});
 // Refreshes that confirm the retained revision update this small record instead of rewriting the snapshot.
 const SNAPSHOT_SYNCHRONIZATION_SETTING = 'activeSnapshotSynchronization';
 const snapshotSynchronizationSchema = v.object({
@@ -262,30 +268,80 @@ export const createIndexedDbBookmarkAdapter = (
     await transactionComplete(transaction);
   };
 
+  const isRecentEntryKey = (key: IDBValidKey) =>
+    typeof key === 'string' && key.startsWith(RECENT_BOOKMARK_ENTRY_PREFIX);
+  const pruneRecentBookmarks = async (openings: readonly { id: string; openedAt: number }[]) => {
+    const database = await databasePromise;
+    const transaction = database.transaction('settings', 'readwrite');
+    const settings = transaction.objectStore('settings');
+    for (const opening of openings) {
+      const key = `${RECENT_BOOKMARK_ENTRY_PREFIX}${opening.id}`;
+      const request = settings.get(key);
+      request.addEventListener(
+        'success',
+        () => {
+          // Keep an entry another tab reopened after this read.
+          const current = v.safeParse(recentOpeningSchema, request.result?.value);
+          if (current.success && current.output.openedAt === opening.openedAt) settings.delete(key);
+        },
+        { once: true },
+      );
+    }
+    await transactionComplete(transaction);
+  };
+
   return {
     async readRecentBookmarks() {
-      return normalizeRecentBookmarks(await readSetting(RECENT_BOOKMARKS_SETTING));
+      const database = await databasePromise;
+      const transaction = database.transaction('settings', 'readonly');
+      const settings = transaction.objectStore('settings');
+      // The settings store holds only a handful of records besides these entries.
+      const [records, legacy] = await Promise.all([
+        indexedDbRequest<Setting[]>(settings.getAll()),
+        indexedDbRequest<Setting | undefined>(settings.get(RECENT_BOOKMARKS_SETTING)),
+      ]);
+      await transactionComplete(transaction);
+      const openings = records
+        .filter((record) => isRecentEntryKey(record.key))
+        .map((entry) => v.safeParse(recentOpeningSchema, entry.value))
+        .flatMap((result) => (result.success ? [result.output] : []))
+        .sort((left, right) => right.openedAt - left.openedAt);
+      if (openings.length > RECENT_BOOKMARKS_LIMIT) {
+        void pruneRecentBookmarks(openings.slice(RECENT_BOOKMARKS_LIMIT)).catch(() => undefined);
+      }
+      return normalizeRecentBookmarks([
+        ...openings.map((opening) => opening.id),
+        ...normalizeRecentBookmarks(legacy?.value),
+      ]);
     },
-    async updateRecentBookmarks(id) {
+    // One blind write, issued while the click is still being handled: a same-tab
+    // navigation can discard the document before a read-then-write transaction commits.
+    async recordRecentBookmark(id) {
+      const database = await databasePromise;
+      const transaction = database.transaction('settings', 'readwrite');
+      const complete = transactionComplete(transaction);
+      transaction.objectStore('settings').put({
+        key: `${RECENT_BOOKMARK_ENTRY_PREFIX}${id}`,
+        value: { id, openedAt: performance.timeOrigin + performance.now() },
+      } satisfies Setting);
+      transaction.commit?.();
+      await complete;
+    },
+    async clearRecentBookmarks() {
       const database = await databasePromise;
       const transaction = database.transaction('settings', 'readwrite');
       const complete = transactionComplete(transaction);
       const settings = transaction.objectStore('settings');
-      const request = settings.get(RECENT_BOOKMARKS_SETTING);
-      let ids: string[] = [];
-      request.addEventListener(
+      const keys = settings.getAllKeys();
+      keys.addEventListener(
         'success',
         () => {
-          ids =
-            id === null
-              ? []
-              : normalizeRecentBookmarks([id, ...normalizeRecentBookmarks(request.result?.value)]);
-          settings.put({ key: RECENT_BOOKMARKS_SETTING, value: ids });
+          for (const key of keys.result) if (isRecentEntryKey(key)) settings.delete(key);
         },
         { once: true },
       );
+      settings.delete(RECENT_BOOKMARKS_SETTING);
       await complete;
-      return ids;
     },
     async readSnapshot() {
       const database = await databasePromise;

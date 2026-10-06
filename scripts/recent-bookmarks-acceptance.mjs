@@ -17,13 +17,14 @@ export const verifyRecentBookmarks = async (page) => {
         const open = indexedDB.open('startree-bookmarks');
         open.onerror = () => resolve('unavailable');
         open.onsuccess = () => {
-          const read = open.result
-            .transaction('settings')
-            .objectStore('settings')
-            .get('recentBookmarksV1');
+          const read = open.result.transaction('settings').objectStore('settings').getAll();
           read.onerror = () => resolve('unavailable');
           read.onsuccess = () => {
-            resolve(read.result?.value ?? null);
+            resolve(
+              read.result
+                .filter((record) => record.key.startsWith('recentBookmark'))
+                .map((record) => ({ key: record.key, value: record.value })),
+            );
             open.result.close();
           };
         };
