@@ -8,14 +8,45 @@ export const verifyRecentBookmarks = async (page) => {
   const cards = page.locator('.bookmark-card-shell');
   const first = await cards.nth(0).getAttribute('data-bookmark-id');
   const second = await cards.nth(1).getAttribute('data-bookmark-id');
+  const recentDiagnostics = (target) =>
+    target.evaluate(async () => ({
+      rendered: [...document.querySelectorAll('[data-recent-id]')].map(
+        (item) => item.dataset.recentId,
+      ),
+      stored: await new Promise((resolve) => {
+        const open = indexedDB.open('startree-bookmarks');
+        open.onerror = () => resolve('unavailable');
+        open.onsuccess = () => {
+          const read = open.result
+            .transaction('settings')
+            .objectStore('settings')
+            .get('recentBookmarksV1');
+          read.onerror = () => resolve('unavailable');
+          read.onsuccess = () => {
+            resolve(read.result?.value ?? null);
+            open.result.close();
+          };
+        };
+      }),
+      navigation: performance.getEntriesByType('navigation')[0]?.type,
+    }));
   const waitForOrder = async (target, ids) => {
-    await target.waitForFunction(
-      (expected) =>
-        JSON.stringify(
-          [...document.querySelectorAll('[data-recent-id]')].map((item) => item.dataset.recentId),
-        ) === JSON.stringify(expected),
-      ids,
-    );
+    try {
+      await target.waitForFunction(
+        (expected) =>
+          JSON.stringify(
+            [...document.querySelectorAll('[data-recent-id]')].map((item) => item.dataset.recentId),
+          ) === JSON.stringify(expected),
+        ids,
+      );
+    } catch (error) {
+      throw new Error(
+        `Recent Bookmarks did not reach ${JSON.stringify(ids)}: ${JSON.stringify(
+          await recentDiagnostics(target),
+        )}`,
+        { cause: error },
+      );
+    }
     if (ids.length) {
       const disclosure = target.locator('.recent-disclosure');
       if (!(await disclosure.evaluate((element) => element.open))) {
