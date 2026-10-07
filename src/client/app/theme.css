@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-palette='forest'] {
   --app-bar-height: 46px;
   color-scheme: light dark;
   --text: light-dark(#24352c, #e4eee7);
@@ -30,7 +31,7 @@
   color-scheme: dark;
 }
 
-:root[data-palette='ocean'] {
+[data-palette='ocean'] {
   --text: light-dark(#29364a, #e5ecf7);
   --muted: light-dark(#586981, #aab9d0);
   --accent: light-dark(#365e98, #a6c5fa);
@@ -46,7 +47,7 @@
   --border-strong: light-dark(#8696ad, #7689a5);
 }
 
-:root[data-palette='dune'] {
+[data-palette='dune'] {
   --text: light-dark(#40352e, #f2e8de);
   --muted: light-dark(#756356, #c3afa0);
   --accent: light-dark(#995034, #e8b094);
@@ -62,7 +63,7 @@
   --border-strong: light-dark(#a3917c, #a28a75);
 }
 
-:root[data-palette='dusk'] {
+[data-palette='dusk'] {
   --text: light-dark(#3b3246, #eee6f4);
   --muted: light-dark(#685772, #bfb0cb);
   --accent: light-dark(#79528f, #d3b2e9);

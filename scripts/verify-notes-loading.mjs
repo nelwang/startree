@@ -7,10 +7,11 @@ const manifest = JSON.parse(
 );
 const entry = manifest['index.html'];
 const main = readFileSync(new URL(`../dist/${entry.file}`, import.meta.url));
-// Baseline 491fae3: 48,364 bytes gzip. Allow only the small navigation/loading shell.
+// Baseline 491fae3: 48,364 bytes gzip. Allow 3 KiB for navigation/loading and
+// 1 KiB for the accessible theme preview picker (under 0.9 KiB measured over cb8f346).
 assert.ok(
-  gzipSync(main).length <= 48_364 + 3_072,
-  'Bookmark entry gzip exceeded the Notes navigation budget',
+  gzipSync(main).length <= 48_364 + 3_072 + 1_024,
+  'Bookmark entry gzip exceeded the navigation and theme picker budget',
 );
 assert.ok(!main.toString().includes('PBKDF2'), 'Cryptography must stay out of the Bookmark entry');
 const notes = manifest['src/client/notes/NotesPage.vue'];
