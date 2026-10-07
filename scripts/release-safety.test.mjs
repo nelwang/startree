@@ -8,6 +8,14 @@ import {
   releaseIdentity,
 } from './release-safety.mjs';
 
+test('both deployment modes run browser-free checks before any Cloudflare command', () => {
+  for (const mode of ['preview', 'production']) {
+    const steps = releaseSteps(mode, 'abc1234', deploymentFixture);
+    assert.deepEqual(steps[0], ['npm', ['run', 'verify:deploy']]);
+    assert.ok(!steps.some(([, args]) => args.includes('verify') || args.includes('verify:local')));
+  }
+});
+
 test('production release checks compatibility before applying migrations and uses cf', () => {
   const steps = releaseSteps('production', 'abc1234', deploymentFixture);
   const compatibility = steps.findIndex(([_, args]) =>

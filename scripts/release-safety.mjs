@@ -37,7 +37,7 @@ export const releaseSteps = (environment, revision, deploymentConfig) => {
   if (!/^[a-f0-9]{7,40}$/.test(revision)) throw new Error('A Git revision is required.');
   const databaseId = getEnvironment(environment, deploymentConfig).databaseId;
   return [
-    ['npx', ['vp', 'run', 'verify']],
+    ['npm', ['run', 'verify:deploy']],
     ['npx', ['cf', 'deploy', '--dry-run', '--mode', environment]],
     [
       'npx',

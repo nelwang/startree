@@ -20,6 +20,7 @@
     "verify:local": "node scripts/verify-local-worker.mjs",
     "verify:performance-data": "node scripts/verify-performance-data.mjs",
     "verify": "vp run --concurrency-limit 4 verify:all",
+    "verify:deploy": "npm run check && npm test && npm run build && npm run verify:migrations && npm run verify:config && node scripts/verify-notes-loading.mjs",
     "measure:preview": "node scripts/measure-preview.mjs",
     "performance:prepare:preview": "node scripts/prepare-preview-performance.mjs",
     "access:capture:preview": "node scripts/capture-access-state.mjs",

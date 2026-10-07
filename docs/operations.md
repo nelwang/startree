@@ -4,7 +4,7 @@ Startree has local, preview, and production environments. Preview uses the `star
 
 ## First-time deployment
 
-Fork the repository and install dependencies with `npm ci`. Use Node.js 22.18 or later and npm 11. Install release-test Chromium with `npx playwright install chromium`.
+Fork the repository and install dependencies with `npm ci`. Use Node.js 22.18 or later and npm 11. Deployment does not require Chromium or another Playwright browser.
 
 1. Authenticate with `npx cf auth login`. For a named profile, use `npx cf auth create your-profile` and add `--profile your-profile` to direct CLI commands.
 
@@ -52,7 +52,7 @@ npm run db:migrate:local
 npm run dev:worker
 ```
 
-`cf dev --mode local` serves the built Vue client and Hono API together. Use `npm run dev` when only client hot-module replacement is needed. Run the complete local acceptance suite with `npm run verify`. Local development, tests, type generation, and CI do not need `deployment.local.json`. Verification injects deterministic synthetic configuration and never reads private deployment values.
+`cf dev --mode local` serves the built Vue client and Hono API together. Use `npm run dev` when only client hot-module replacement is needed. For development acceptance tests, install Chromium with `npx playwright install chromium`, then run `npm run verify`. Local development, tests, type generation, and CI do not need `deployment.local.json`. Verification injects deterministic synthetic configuration and never reads private deployment values.
 
 ## Remote database provisioning
 
@@ -73,11 +73,13 @@ Select a non-default Cloudflare CLI authentication profile without changing the 
 CF_PROFILE=your-profile npm run deploy:preview
 ```
 
-Both repeat the complete local verification, run a non-uploading `cf deploy --dry-run`, list that environment's pending remote D1 migrations, require every migration to carry the reviewed `startree: expand-contract-compatible` declaration, apply migrations, and deploy that environment using `cf deploy`. Production additionally requires a clean working tree and a current commit already present on `origin/master`. The command prints the target and active Worker version ID. There is no default deployment command. Missing, malformed, placeholder, or non-isolated deployment configuration blocks deployment and D1 helpers before they start remote commands, including production's Git fetch. Run commands from the repository root.
+Both run `npm run verify:deploy` for formatting, linting, type checking, unit and script tests, the production build, migration validation, environment isolation, and Notes loading checks. These checks do not launch a browser. Browser acceptance remains in development verification and CI.
+
+The deployment commands then run a non-uploading `cf deploy --dry-run`, list that environment's pending remote D1 migrations, require every migration to carry the reviewed `startree: expand-contract-compatible` declaration, apply migrations, and deploy that environment using `cf deploy`. Production additionally requires a clean working tree and a current commit already present on `origin/master`. The command prints the target and active Worker version ID. There is no default deployment command. Missing, malformed, placeholder, or non-isolated deployment configuration blocks deployment and D1 helpers before they start remote commands, including production's Git fetch. Run commands from the repository root.
 
 Expand/contract is mandatory: first add nullable or independently usable schema, deploy code that tolerates both shapes, backfill separately when required, and remove the old shape only after the immediately previous Worker no longer depends on it. Never combine a destructive contract step with the release that first introduces its replacement. This keeps the previous Worker usable when migration succeeds but upload fails.
 
-Compatible service-worker releases activate without waiting for all existing tabs to close. Open documents retain their current UI and drafts; subsequent navigation uses the updated shell. Bookmark snapshots missing pin metadata are reloaded from the server even when their revision matches, because an older tab can strip fields from shared IndexedDB data. Local release verification includes an upgrade from an already installed cache-first shell with an older tab kept open.
+Compatible service-worker releases activate without waiting for all existing tabs to close. Open documents retain their current UI and drafts; subsequent navigation uses the updated shell. Bookmark snapshots missing pin metadata are reloaded from the server even when their revision matches, because an older tab can strip fields from shared IndexedDB data. The full development verification includes an upgrade from an already installed cache-first shell with an older tab kept open.
 
 `deploy:production` targets your configured production hostname and must never be run merely to test configuration. Use `npx cf deploy --dry-run --mode production --profile your-profile` for a non-deploying configuration check. A failed upload leaves the prior deployment active; record the command output, inspect deployment status, and do not rerun migrations independently.
 

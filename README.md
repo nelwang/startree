@@ -40,11 +40,10 @@ Startree is built for one owner, not a shared team account. You host it on Cloud
 
 You need Node.js 22.18 or newer, npm 11, and a Cloudflare account with Workers, D1, Access, and a domain for production.
 
-1. Fork and clone this repository, then install the pinned tools and browser used by release checks.
+1. Fork and clone this repository, then install dependencies. Deployment does not require a Playwright browser installation.
 
    ```sh
    npm ci
-   npx playwright install chromium
    ```
 
 2. Authenticate the bundled Cloudflare CLI, create separate preview and production D1 databases, and configure your database IDs and production hostname. Copy `deployment.example.json` to the ignored `deployment.local.json`, run `chmod 600 deployment.local.json`, and edit its IDs and domain. Follow [first-time deployment](docs/operations.md#first-time-deployment). No source or test changes are needed.
@@ -60,7 +59,7 @@ You need Node.js 22.18 or newer, npm 11, and a Cloudflare account with Workers, 
 
    If you use a named CLI authentication profile, prefix either command with `CF_PROFILE=your-profile`.
 
-Both commands run the full verification suite and apply database migrations before deployment. Production also requires a clean commit already pushed to `origin/master` in your fork. See the [operations guide](docs/operations.md) for Access checks, release safety, and rollback.
+Both commands run browser-free checks and apply database migrations before deployment. Production also requires a clean commit already pushed to `origin/master` in your fork. See the [operations guide](docs/operations.md) for Access checks, release safety, and rollback.
 
 ## Develop
 
@@ -74,14 +73,14 @@ npm run dev:worker
 
 Open the URL printed by the CLI, normally `http://localhost:8787`. This runs the built client and API together against local D1. Use `npm run dev` for client-only hot reload.
 
-| Command          | Purpose                                                                           |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `npm run check`  | Check formatting, lint rules, and TypeScript.                                     |
-| `npm test`       | Run unit and script tests.                                                        |
-| `npm run build`  | Build the client and service worker.                                              |
-| `npm run verify` | Run the full release checks, including local Worker and browser acceptance tests. |
+| Command          | Purpose                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `npm run check`  | Check formatting, lint rules, and TypeScript.                                         |
+| `npm test`       | Run unit and script tests.                                                            |
+| `npm run build`  | Build the client and service worker.                                                  |
+| `npm run verify` | Run the full development checks, including local Worker and browser acceptance tests. |
 
-Before running browser checks, install Chromium with `npx playwright install chromium`.
+Before running browser checks, install Chromium with `npx playwright install chromium`. For deployment checks without a browser, run `npm run verify:deploy`.
 
 The client uses Vue 3 and TypeScript. Hono serves the API from the same Worker, D1 stores authoritative data, and IndexedDB retains local copies. MiniSearch runs bookmark search in a Web Worker.
 
