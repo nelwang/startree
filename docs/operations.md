@@ -2,6 +2,31 @@
 
 Startree has local, preview, and production environments. Preview uses the `startree-preview` Worker and production uses the `startree` Worker; their D1 database names remain deliberately distinct. Deployments run only from the Owner's authenticated local machine; CI never receives Cloudflare credentials, contacts remote D1, or deploys.
 
+## First-time deployment
+
+Fork the repository and install dependencies with `npm ci`. Use Node.js 22.18 or later and npm 11. Install release-test Chromium with `npx playwright install chromium`.
+
+1. Authenticate with `npx cf auth login`. For a named profile, use `npx cf auth create your-profile` and add `--profile your-profile` to direct CLI commands.
+
+2. Create separate databases in your own account.
+
+   ```sh
+   npx cf d1 create --name startree-preview
+   npx cf d1 create --name startree-production
+   ```
+
+3. Set `preview.databaseId` and `production.databaseId` in `cloudflare.environments.ts` to the returned UUIDs. Update the production database-ID assertion in `scripts/release-safety.test.mjs` to match. Keep the local identity unchanged. For an existing installation, reuse its database IDs.
+
+4. Replace the production hostname in `cloudflare.config.ts`, `scripts/verify-environments.mjs`, `scripts/release-safety.mjs`, and `scripts/release-safety.test.mjs` with a hostname in your Cloudflare zone. The checked-in remote identities belong to the original installation, not your account.
+
+5. Configure Access as described below before uploading the application. Keep production `workersDev: false` and `previewUrls: false` in every remote environment.
+
+6. Run `npm run deploy:preview`. Verify that unauthenticated requests cannot reach the application, then test authenticated bookmark creation, reload, and search.
+
+7. Commit your configuration and push to `origin/master` in your fork before running `npm run deploy:production`. Production requires a clean working tree and a commit already on that remote branch.
+
+Keep credentials in CLI authentication profiles, never in repository files. Database IDs are resource identifiers rather than access credentials, but can still identify your installation.
+
 ## Access prerequisite
 
 Before the first remote release, configure Cloudflare Access to protect the entire `startree-preview.<account-subdomain>.workers.dev` application and the entire `startree.example.com` application. Policies must include every path, including `/api/*`, and allow only the Owner. Production disables both `workers.dev` and version preview URLs in `cloudflare.config.ts`; preview disables per-version preview URLs so its fixed, Access-protected hostname is the only preview surface.
@@ -17,30 +42,30 @@ API responses must not include `Access-Control-Allow-Origin` or `Access-Control-
 Install dependencies, apply migrations, and start the combined Worker:
 
 ```sh
-vp install
-vp run db:migrate:local
-vp run dev:worker
+npm ci
+npm run db:migrate:local
+npm run dev:worker
 ```
 
-`cf dev --mode local` serves the built Vue client and Hono API together. Use `vp dev` when only client hot-module replacement is needed. Run the complete local acceptance suite with `vp run verify`.
+`cf dev --mode local` serves the built Vue client and Hono API together. Use `npm run dev` when only client hot-module replacement is needed. Run the complete local acceptance suite with `npm run verify`.
 
 ## Remote database provisioning
 
-Both remote databases already exist. `cloudflare.environments.ts` pins their existing UUIDs; migration must reuse them rather than provision replacements. Preview and production names and UUIDs must remain distinct. `cf d1 migrations` takes a database UUID and `--dir ./migrations`, and preserves the existing `d1_migrations` history.
+After first-time provisioning, `cloudflare.environments.ts` pins your remote database UUIDs. Later migrations must reuse them rather than provision replacements. Preview and production names and UUIDs must remain distinct. `cf d1 migrations` takes a database UUID and `--dir ./migrations`, and preserves the existing `d1_migrations` history.
 
 ## Deployment
 
 The only deployment entry points are explicit:
 
 ```sh
-vp run deploy:preview
-vp run deploy:production
+npm run deploy:preview
+npm run deploy:production
 ```
 
 Select a non-default Cloudflare CLI authentication profile without changing the active profile:
 
 ```sh
-CF_PROFILE=your-profile vp run deploy:preview
+CF_PROFILE=your-profile npm run deploy:preview
 ```
 
 Both repeat the complete local verification, run a non-uploading `cf deploy --dry-run`, list that environment's pending remote D1 migrations, require every migration to carry the reviewed `startree: expand-contract-compatible` declaration, apply migrations, and deploy that environment using `cf deploy`. Production additionally requires a clean working tree and a current commit already present on `origin/master`. The command prints the target and active Worker version ID. There is no default deployment command.
@@ -49,7 +74,7 @@ Expand/contract is mandatory: first add nullable or independently usable schema,
 
 Compatible service-worker releases activate without waiting for all existing tabs to close. Open documents retain their current UI and drafts; subsequent navigation uses the updated shell. Bookmark snapshots missing pin metadata are reloaded from the server even when their revision matches, because an older tab can strip fields from shared IndexedDB data. Local release verification includes an upgrade from an already installed cache-first shell with an older tab kept open.
 
-`deploy:production` targets `https://startree.example.com` and must never be run merely to test configuration. Use `npx cf deploy --dry-run --mode production --profile your-profile` for a non-deploying configuration check. A failed upload leaves the prior deployment active; record the command output, inspect deployment status, and do not rerun migrations independently.
+`deploy:production` targets your configured production hostname and must never be run merely to test configuration. Use `npx cf deploy --dry-run --mode production --profile your-profile` for a non-deploying configuration check. A failed upload leaves the prior deployment active; record the command output, inspect deployment status, and do not rerun migrations independently.
 
 ## Representative preview measurement
 
@@ -57,25 +82,25 @@ Preview holds synthetic data only. Preparing a case replaces all preview Bookmar
 
 ```sh
 STARTREE_CONFIRM_PREVIEW_RESET=synthetic-preview-only CF_PROFILE=your-profile \
-  vp run performance:prepare:preview -- hierarchy
+  npm run performance:prepare:preview -- hierarchy
 STARTREE_CONFIRM_PREVIEW_RESET=synthetic-preview-only CF_PROFILE=your-profile \
-  vp run performance:prepare:preview -- concentration
+  npm run performance:prepare:preview -- concentration
 STARTREE_CONFIRM_PREVIEW_RESET=synthetic-preview-only CF_PROFILE=your-profile \
-  vp run performance:prepare:preview -- maximum-fields
+  npm run performance:prepare:preview -- maximum-fields
 ```
 
-The hierarchy and concentration cases each contain 10,000 Bookmarks and 1,000 Folders; hierarchy reaches ten levels, concentration places every Bookmark in one Folder, and maximum fields remain a separate nonrepresentative stress case. `vp run verify:performance-data` proves all three fixtures against local D1 in CI.
+The hierarchy and concentration cases each contain 10,000 Bookmarks and 1,000 Folders; hierarchy reaches ten levels, concentration places every Bookmark in one Folder, and maximum fields remain a separate nonrepresentative stress case. `npm run verify:performance-data` proves all three fixtures against local D1 in CI.
 
 Capture a temporary authenticated browser state outside the repository, then measure hierarchy and concentration separately. Delete the state file after use:
 
 ```sh
 STARTREE_PREVIEW_URL=https://startree-preview.<account-subdomain>.workers.dev \
 STARTREE_ACCESS_STORAGE_STATE=/tmp/startree-access.storage-state.json \
-  vp run access:capture:preview
+  npm run access:capture:preview
 
 STARTREE_PREVIEW_URL=https://startree-preview.<account-subdomain>.workers.dev \
 STARTREE_ACCESS_STORAGE_STATE=/tmp/startree-access.storage-state.json \
-STARTREE_PERFORMANCE_CASE=hierarchy vp run measure:preview
+STARTREE_PERFORMANCE_CASE=hierarchy npm run measure:preview
 ```
 
 Run the measurement again with `STARTREE_PERFORMANCE_CASE=concentration` after preparing that case. Each command performs five cold and five warm runs, reports samples and the 75th percentile, and fails the settled warm, cold, LCP, INP, CLS, local-interaction, or cold hard-ceiling target. This Playwright/PerformanceObserver evidence is repository-supported fallback evidence; use a Chrome DevTools trace as the primary artifact whenever that MCP is available.
@@ -100,11 +125,11 @@ Use the Cloudflare dashboard's Workers Logs view for redacted structured runtime
 
 Select `--profile your-profile` when the profile is not active. Logs may contain only safe event names, mutation type/outcome/conflict classification, request and operation IDs, sanitized exception types/cause frames, and Git commit SHA. Stop investigation if output contains an Access header, cookie, request body, SQL, Bookmark URL/title, Folder name, Tag, or Note; treat that as a privacy incident.
 
-Inspect D1 without including Owner content in shared diagnostics:
+Set `PREVIEW_DATABASE_ID` to your preview UUID before inspecting D1. Do not include Owner content in shared diagnostics:
 
 ```sh
-npx cf d1 migrations list 00000000-0000-4000-8000-000000000021 --mode preview --dir ./migrations
-npx cf d1 query 00000000-0000-4000-8000-000000000021 --mode preview --sql "SELECT revision FROM bookmark_domain_state"
+npx cf d1 migrations list "$PREVIEW_DATABASE_ID" --mode preview --dir ./migrations
+npx cf d1 query "$PREVIEW_DATABASE_ID" --mode preview --sql "SELECT revision FROM bookmark_domain_state"
 ```
 
 For a code regression, list versions and roll back the affected Worker by version ID. A Worker rollback does not reverse D1 schema or data:

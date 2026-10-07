@@ -1,139 +1,98 @@
 <p align="center">
-  <img src="public/brand-mark.svg" width="64" height="64" alt="Startree logo">
+  <img src="public/brand-mark.svg" width="72" height="72" alt="Startree logo">
 </p>
 
-# Startree
+<h1 align="center">Startree</h1>
 
-Startree is a private, self-hosted bookmark workspace designed to work as a browser start page or new-tab destination. It keeps a large bookmark library compact, searchable, available offline, and pleasant to navigate without turning the page into a dashboard of unrelated widgets.
+<p align="center"><strong>Your bookmarks, independent of your browser.</strong></p>
+<p align="center">A self-hosted start page with searchable bookmarks and encrypted private notes.</p>
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#deploy">Deploy</a> ·
+  <a href="#develop">Develop</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
+
+Switch browsers without moving your bookmarks or setting up another sync service. Startree keeps one library at your own URL, ready to open in whichever browser you use. Set it as your start page, or use it as a new-tab destination where your browser supports one.
+
+Folders, tags, pinned bookmarks, and full-library search give you more ways to organize and find things than a browser bookmark menu. A separate encrypted notebook keeps private writing in the same workspace.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bookmarks-dark.png">
+  <img src="docs/images/bookmarks.png" alt="Startree bookmark library with folders, pinned bookmarks, and tagged cards" width="1440">
+</picture>
 
 ## Features
 
-- Hierarchical Folders with a resizable desktop tree and a mobile drawer
-- Cross-Folder pinned Bookmarks with manual ordering, cloud synchronization, and offline browsing
-- Compact Bookmark cards with optional Tags and Notes
-- Fast local search across Folder names, titles, URLs, Tags, and Notes, with Tag and domain filters
-- Keyboard-first search with `/`, `Cmd/Ctrl+K`, arrow keys, `Enter`, and `Cmd/Ctrl+Enter`
-- In-page Bookmark capture with current-Folder placement, Tag suggestions, and exact-URL awareness
-- Folder and Bookmark creation, editing, moving, and drag-and-drop ordering
-- Advisory exact-URL duplicate review with recoverable deletion through Trash
-- Trash, undo, restore, permanent deletion, and conflict-aware writes
-- Remembered Folder navigation for start-page and new-tab use
-- Stable URLs while browsing: Folder selection stays local and the root URL restores the last Folder
-- Retained IndexedDB snapshots and offline browsing through a service worker
-- A lazy-loaded, browser-encrypted Notes Page with local search, encrypted offline drafts, recovery keys, and explicit conflict handling
-- Responsive and accessibility-checked UI
+|                 | What you can do                                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organize        | Nest folders, add tags and annotations, and drag bookmarks into order on desktop.                                                              |
+| Find            | Search titles, URLs, folders, tags, and annotations. Narrow results by tag or domain. Open search with `/` or `Ctrl/Cmd+K`.                    |
+| Keep close      | Pin bookmarks from any folder. Return to your last folder or revisit recently opened bookmarks.                                                |
+| Manage          | Create and edit bookmarks in place, review exact-URL duplicates, and recover deleted items from Trash.                                         |
+| Read offline    | Browse and search the library retained in your browser after an online visit.                                                                  |
+| Write privately | Encrypt note titles, text, and version history in the browser. Save offline drafts, export encrypted backups, and recover with a separate key. |
+| Make it yours   | Choose a theme and browse on desktop or mobile. Mobile bookmark browsing is read-only.                                                         |
 
-## Stack
+Startree is built for one owner, not a shared team account. You host it on Cloudflare Workers and D1, with Cloudflare Access protecting the whole application. Bookmarks are stored unencrypted in D1; browser-side encryption applies to the separate Notes page, not bookmark annotations.
 
-| Area       | Technology                                    |
-| ---------- | --------------------------------------------- |
-| Client     | Vue 3, TypeScript                             |
-| Search     | MiniSearch in a Web Worker                    |
-| API        | Hono on Cloudflare Workers                    |
-| Database   | Cloudflare D1                                 |
-| Offline    | IndexedDB, Workbox, service worker            |
-| Validation | Valibot                                       |
-| Tooling    | Vite+, Wrangler, Vitest, Playwright, axe-core |
+## Deploy
 
-The built Vue application and Hono API are served by one Worker. D1 is authoritative; the browser retains a complete compatible snapshot in IndexedDB for fast startup and offline reading. Bookmark search is built locally from that active snapshot.
+You need Node.js 22.18 or newer, npm 11, and a Cloudflare account with Workers, D1, Access, and a domain for production.
 
-## Requirements
+1. Fork and clone this repository, then install the pinned tools and browser used by release checks.
 
-- Node.js 22.18 or newer
-- npm 11.5.2 or a compatible npm 11 release
-- Cloudflare CLI (`cf`) and its Wrangler build/dev adapter, pinned in development dependencies
-- Chromium for the complete browser acceptance suite
+   ```sh
+   npm ci
+   npx playwright install chromium
+   ```
 
-## Local development
+2. Authenticate the bundled Cloudflare CLI, create separate preview and production D1 databases, and configure your database IDs and production hostname. Follow [first-time deployment](docs/operations.md#first-time-deployment). Do not use the repository owner's resource IDs or hostname.
 
-Install dependencies and initialize the local D1 database:
+3. Protect **every path**, including `/api/*`, with Cloudflare Access before deploying. Startree has no built-in login and must not be exposed without Access.
+
+4. Deploy preview first, then production.
+
+   ```sh
+   npm run deploy:preview
+   npm run deploy:production
+   ```
+
+   If you use a named CLI authentication profile, prefix either command with `CF_PROFILE=your-profile`.
+
+Both commands run the full verification suite and apply database migrations before deployment. Production also requires a clean commit already pushed to `origin/master` in your fork. See the [operations guide](docs/operations.md) for Access checks, release safety, and rollback.
+
+## Develop
+
+No Cloudflare account is needed for local development.
 
 ```sh
-npm install
+npm ci
 npm run db:migrate:local
-```
-
-Build the client and start the combined local Worker:
-
-```sh
 npm run dev:worker
 ```
 
-Wrangler prints the local URL, normally `http://localhost:8787`. For client-only hot-module replacement, use `npm run dev`.
+Open the URL printed by the CLI, normally `http://localhost:8787`. This runs the built client and API together against local D1. Use `npm run dev` for client-only hot reload.
 
-## Verification
+| Command          | Purpose                                                                           |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `npm run check`  | Check formatting, lint rules, and TypeScript.                                     |
+| `npm test`       | Run unit and script tests.                                                        |
+| `npm run build`  | Build the client and service worker.                                              |
+| `npm run verify` | Run the full release checks, including local Worker and browser acceptance tests. |
 
-Install the Playwright Chromium build once on a development machine:
+Before running browser checks, install Chromium with `npx playwright install chromium`.
 
-```sh
-npx playwright install chromium
-```
+The client uses Vue 3 and TypeScript. Hono serves the API from the same Worker, D1 stores authoritative data, and IndexedDB retains local copies. MiniSearch runs bookmark search in a Web Worker.
 
-Run the same complete verification used by releases:
+Start with `src/client/` for the UI, `src/server/` for the API, and `src/shared/` for validated contracts. Database migrations live in `migrations/`; release and verification tools live in `scripts/`.
 
-```sh
-npm run verify
-```
+## Documentation
 
-The verification pipeline covers formatting, linting, TypeScript, unit tests, production builds, migration safety, environment isolation, performance fixtures, accessibility, browser interaction, offline behavior, and a complete local D1-backed Worker.
+- [Operations](docs/operations.md): provisioning, Access policies, deployment, and rollback.
+- [Private Notes](docs/private-notes.md): saving, offline drafts, recovery, and backups.
+- [Encryption design](docs/encrypted-notes-design.md): algorithms, trust boundaries, synchronization, and limits.
+- [Data and privacy](docs/data-and-privacy.md): server storage, browser retention, and diagnostics.
+- [Domain terminology](CONTEXT.md): the concepts used throughout the codebase.
 
-Useful narrower commands:
-
-| Command                | Purpose                                       |
-| ---------------------- | --------------------------------------------- |
-| `npm run check`        | Formatting, linting, and type checking        |
-| `npm test`             | Unit and script tests                         |
-| `npm run build`        | Production client and service-worker build    |
-| `npm run verify:local` | Full local Worker and browser acceptance test |
-| `npm run types`        | Regenerate Cloudflare binding types           |
-
-CI uses the Chrome installation provided by the GitHub-hosted runner, avoiding a repeated Playwright browser and system-package download.
-
-## Environments and deployment
-
-Startree has isolated `local`, `preview`, and `production` Workers and D1 databases. Remote environments must be protected by whole-application Cloudflare Access policies before deployment.
-
-The only supported deployment entry points are explicit:
-
-```sh
-CF_PROFILE=your-profile npm run deploy:preview
-CF_PROFILE=your-profile npm run deploy:production
-```
-
-Both commands rerun complete verification, validate expand/contract migration safety, apply pending migrations, and deploy the selected environment. Production additionally requires a clean commit already present on `origin/master`.
-
-Read [docs/operations.md](docs/operations.md) before provisioning, deploying, measuring performance, inspecting remote data, or rolling back a Worker.
-
-## Data and privacy model
-
-Startree is a single-Owner application. Cloudflare Access is the remote authentication boundary; the application does not implement public sign-up or multi-user tenancy.
-
-- D1 is the authoritative Bookmark store.
-- IndexedDB retains compatible snapshots, navigation, unresolved operations, and the 10 most recently opened Bookmark IDs in the browser. Recent activity stays in this browser, works offline, and can be cleared from the Recently opened list.
-- Structured Bookmark data is not stored in Cache Storage, `localStorage`, or `sessionStorage`.
-- API responses are private and non-cacheable.
-- Logs and shared diagnostics must never contain Bookmark titles, URLs, Folder names, Tags, Notes, cookies, Access headers, or request bodies.
-
-## Repository guide
-
-```text
-src/client/       Vue UI, local state, search, and offline behavior
-src/server/       Hono Worker, security boundaries, and Bookmark service
-src/shared/       Validated contracts shared by client and server
-migrations/       D1 schema migrations
-scripts/          Verification, deployment, and performance tooling
-tests/fixtures/   Synthetic acceptance data
-docs/             Operations, research, and agent guidance
-```
-
-Domain terminology lives in [CONTEXT.md](CONTEXT.md). GitHub Issues are the project tracker; repository-specific issue and triage conventions are documented under [docs/agents](docs/agents).
-
-## Private Notes
-
-Open **Notes**, choose a separate password, and save and verify the recovery key before writing. Titles, bodies, and saved version history are encrypted in the browser before they reach Cloudflare. Click **Save** or press **Ctrl/Cmd+S** to commit changes; the button becomes enabled after edits. **History** previews older versions and restores them as a new version. Leaving with unsaved edits prompts to save, discard, or keep editing. Refresh, leaving Notes, or 15 minutes of inactivity locks the notebook. Unsynced encrypted drafts can be resumed from the unlock screen; resolve competing edits with **Keep both versions**. Settings includes password/recovery rotation and encrypted backup export. Import accepts encrypted backups on the unlock screen.
-
-The initial notebook limit is 500 plain-text notes and 512 KiB of serialized content including history; reaching the limit blocks the new save without pruning earlier versions. Losing both the password and recovery key loses access to the notes; an application login reset cannot decrypt them. See [Encrypted Notes design](docs/encrypted-notes-design.md) for storage, trust boundaries, and recovery behavior, and [Notes performance review](docs/notes-performance-review.md) for startup measurements.
-
-## Cloudflare CLI
-
-Cloudflare configuration lives in `cloudflare.config.ts`, with explicit `local`, `preview`, and `production` modes and pinned D1 identities in `cloudflare.environments.ts`. The project pins `cf` beta to the version recorded in `package.json`. Release scripts use `cf deploy`, including a dry run before remote migrations. `wrangler.config.ts` contains only the build/dev adapter settings required by this cf beta; Wrangler is not the deployment entry point. Frontend bundling remains in Vite.
+Screenshots use synthetic example data.
