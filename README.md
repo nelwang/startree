@@ -38,13 +38,20 @@ Startree is built for one owner, not a shared team account. You host it on Cloud
 
 ## Deploy
 
-You need Node.js 22.18 or newer, npm 11, and a Cloudflare account with Workers, D1, Access, and a domain for production.
+Use a POSIX shell on Linux or macOS. On Windows, use WSL with Linux Node.js and npm installed inside WSL, not Windows executables or Git Bash with Windows Node. Native PowerShell and Command Prompt deployment is unsupported and untested. Verification evidence is from Linux.
 
-1. Fork and clone this repository, then install dependencies. Deployment does not require a Playwright browser installation.
+Recommended: Node.js 22 LTS, version 22.18 or later within the 22.x line, and npm 11. An existing Node.js 24 LTS installation at 24.11 or later also meets the dependency range; no downgrade is needed. You also need a Cloudflare account with Workers, D1, Access, and a domain for production.
+
+1. Fork and clone this repository, then install and verify locally before authentication or provisioning. Deployment does not require a Playwright browser installation.
 
    ```sh
-   npm ci
+   node --version
+   npm --version
+   npm ci --include=dev --include=optional
+   npm run verify:deploy
    ```
+
+   Stop if installation or deployment verification fails. Follow [installation troubleshooting](docs/operations.md#installation-troubleshooting), not dependency upgrades. Verification uses synthetic configuration and needs no Cloudflare credentials or private deployment file.
 
 2. Authenticate the bundled Cloudflare CLI, create separate preview and production D1 databases, and configure your database IDs and production hostname. Copy `deployment.example.json` to the ignored `deployment.local.json`, run `chmod 600 deployment.local.json`, and edit its IDs and domain. Follow [first-time deployment](docs/operations.md#first-time-deployment). No source or test changes are needed.
 

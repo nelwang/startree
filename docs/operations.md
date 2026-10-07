@@ -4,7 +4,23 @@ Startree has local, preview, and production environments. Preview uses the `star
 
 ## First-time deployment
 
-Fork the repository and install dependencies with `npm ci`. Use Node.js 22.18 or later and npm 11. Deployment does not require Chromium or another Playwright browser.
+Use a POSIX shell on Linux or macOS. On Windows, run inside WSL with Linux Node.js and npm installed there. Do not use Windows executables from WSL or Git Bash with Windows Node. Native PowerShell and Command Prompt deployment is unsupported and untested. The verification evidence is Linux-only.
+
+Fork and clone the repository. Recommended: Node.js 22 LTS, version 22.18 or later within the 22.x line, and npm 11. An existing Node.js 24 LTS installation at 24.11 or later also meets the dependency range; no downgrade is needed. See the [deployment review](agent-deployment-review.md) for tested versions and verification limits.
+
+Before authentication or provisioning, run these commands from the repository root:
+
+```sh
+node --version
+npm --version
+node -p 'process.platform'
+npm ci --include=dev --include=optional
+npm run verify:deploy
+```
+
+In WSL, `process.platform` must print `linux`. Stop if installation or verification fails and follow [installation troubleshooting](#installation-troubleshooting). Verification uses synthetic configuration without credentials or `deployment.local.json`. It does not validate your Cloudflare account, database IDs, or Access policies. Chromium is not required.
+
+Continue only after installation and deployment verification succeed.
 
 1. Authenticate with `npx cf auth login`. For a named profile, use `npx cf auth create your-profile` and add `--profile your-profile` to direct CLI commands.
 
@@ -31,6 +47,16 @@ Fork the repository and install dependencies with `npm ci`. Use Node.js 22.18 or
 7. Push your application commit to `origin/master` in your fork before running `npm run deploy:production`. Production requires a clean working tree and a commit already on that remote branch. Never commit `deployment.local.json`; back it up privately.
 
 Keep credentials in CLI authentication profiles, never in repository files. Database IDs are resource identifiers rather than access credentials, but can still identify your installation.
+
+## Installation troubleshooting
+
+For an AI agent, an install failure is evidence about this attempt, not proof that a package or version is unavailable.
+
+- Stop before login, provisioning, or deployment. Record the failed command, package and version, hostname, error code, OS, and Node and npm versions. Redact tokens, authenticated URLs, and private values before sharing logs. Do not dump environment variables or complete npm configuration.
+- For DNS errors, timeouts, proxy errors, or certificate failures, check access to the actual failing endpoint using the approved registry, proxy, and CA configuration. A failed request alone does not establish that the pinned version is missing. Claim unavailability only with a successful authoritative registry response for that exact version. Otherwise report the observed error and leave availability unresolved.
+- For engine errors, check the required Node.js and npm versions above. For missing native packages, check OS and architecture and confirm that development and optional dependencies were installed. Deployment needs build tools and the local Worker runtime even though it is browser-free.
+- Preserve `package.json`, `package-lock.json`, and the pinned `cf` and Wrangler versions. Do not regenerate the lockfile, run upgrade or audit-fix commands, substitute a global CLI, use arbitrary mirrors, omit development or optional dependencies, or disable TLS verification.
+- After correcting the evidenced environment or network problem, retry `npm ci --include=dev --include=optional`, then `npm run verify:deploy`. If blocked, report the redacted evidence and stop. Installing Chromium does not repair deployment checks.
 
 ## Access prerequisite
 
@@ -161,4 +187,4 @@ The project pins `cf@1.0.0-beta.12` and its supported Wrangler build/dev adapter
 
 The beta can leave a Miniflare file watcher alive after a local D1 command completes. `scripts/cf-local.mjs` awaits the official CLI entry point, flushes output, and exits with its status; it is restricted to finite local D1 commands and is not used for deployment or dev servers. This beta implements local D1 reads through `cf d1 raw`; `scripts/cloudflare.mjs` converts its column/row response into objects. Local development uses the adapter's `.wrangler/state` persistence directory, so `db:migrate:local` explicitly targets it. Browser acceptance creates a temporary project with source/build symlinks and its own `.wrangler/state`, because the beta's dev adapter does not forward `--persist-to`. Ports come from `STARTREE_DEV_PORT` in the adapter config. No test contacts remote D1. Synthetic performance fixtures use bounded batches through the API; a failed import may leave preview partially populated and should be rerun, never used against production.
 
-Run `npm run types` to regenerate `worker-configuration.d.ts` from `cf workers types`. `.cloudflare/` is generated output and is not committed. Native configuration and inferred Worker bindings are covered by server type checking. Node.js 22.18 or later is required for TypeScript configuration loading.
+Run `npm run types` to regenerate `worker-configuration.d.ts` from `cf workers types`. `.cloudflare/` is generated output and is not committed. Native configuration and inferred Worker bindings are covered by server type checking. Use the Node.js guidance in the first-time deployment instructions for TypeScript configuration loading.
