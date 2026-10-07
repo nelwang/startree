@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deploymentFixture } from './deployment-fixture.mjs';
 
 import {
   assertExpandContractMigrations,
@@ -8,7 +9,7 @@ import {
 } from './release-safety.mjs';
 
 test('production release checks compatibility before applying migrations and uses cf', () => {
-  const steps = releaseSteps('production', 'abc1234');
+  const steps = releaseSteps('production', 'abc1234', deploymentFixture);
   const compatibility = steps.findIndex(([_, args]) =>
     args.includes('scripts/verify-release-migrations.mjs'),
   );
@@ -22,7 +23,7 @@ test('production release checks compatibility before applying migrations and use
     assert.equal(args[args.indexOf('--mode') + 1], 'production');
     assert.ok(!args.includes('wrangler'));
     if (args.includes('migrations'))
-      assert.ok(args.includes('00000000-0000-4000-8000-000000000022'));
+      assert.ok(args.includes(deploymentFixture.production.databaseId));
   }
   assert.ok(steps.at(-1)[1].includes('abc1234'));
   assert.throws(() => releaseSteps('local', 'abc1234'));
@@ -57,9 +58,13 @@ test('migration compatibility requires an explicit expand-contract declaration',
 
 test('release status identifies the deployed Worker version and target', () => {
   assert.deepEqual(
-    releaseIdentity('production', {
-      deployments: [{ versions: [{ version_id: 'version-123', percentage: 100 }] }],
-    }),
-    { target: 'https://startree.example.com', versionId: 'version-123' },
+    releaseIdentity(
+      'production',
+      {
+        deployments: [{ versions: [{ version_id: 'version-123', percentage: 100 }] }],
+      },
+      deploymentFixture,
+    ),
+    { target: 'https://deployment.fixture.dev', versionId: 'version-123' },
   );
 });

@@ -6,3 +6,4 @@ dist/
 *.storage-state.json
 .DS_Store
 .cloudflare/
+/deployment.local.json

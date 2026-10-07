@@ -47,7 +47,7 @@ You need Node.js 22.18 or newer, npm 11, and a Cloudflare account with Workers, 
    npx playwright install chromium
    ```
 
-2. Authenticate the bundled Cloudflare CLI, create separate preview and production D1 databases, and configure your database IDs and production hostname. Follow [first-time deployment](docs/operations.md#first-time-deployment). Do not use the repository owner's resource IDs or hostname.
+2. Authenticate the bundled Cloudflare CLI, create separate preview and production D1 databases, and configure your database IDs and production hostname. Copy `deployment.example.json` to the ignored `deployment.local.json`, run `chmod 600 deployment.local.json`, and edit its IDs and domain. Follow [first-time deployment](docs/operations.md#first-time-deployment). No source or test changes are needed.
 
 3. Protect **every path**, including `/api/*`, with Cloudflare Access before deploying. Startree has no built-in login and must not be exposed without Access.
 
@@ -64,7 +64,7 @@ Both commands run the full verification suite and apply database migrations befo
 
 ## Develop
 
-No Cloudflare account is needed for local development.
+No Cloudflare account or private deployment file is needed for local development, tests, type generation, or CI verification.
 
 ```sh
 npm ci

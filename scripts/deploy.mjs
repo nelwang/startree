@@ -7,6 +7,8 @@ if (environment !== 'preview' && environment !== 'production') {
   throw new Error('Choose exactly one deployment environment: preview or production.');
 }
 
+getEnvironment(environment);
+
 const revision = run('git', ['rev-parse', 'HEAD'], { capture: true });
 const profile = process.env.CF_PROFILE?.trim();
 const profileArgs = profile ? ['--profile', profile] : [];

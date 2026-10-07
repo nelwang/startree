@@ -1,5 +1,10 @@
-import configuration from '../cloudflare.config.ts';
-import { environments, getEnvironment } from '../cloudflare.environments.ts';
+import { createConfiguration } from '../cloudflare.config.ts';
+import { getEnvironment } from '../cloudflare.environments.ts';
+import { deploymentFixture } from './deployment-fixture.mjs';
+const configuration = createConfiguration(deploymentFixture);
+const environments = Object.fromEntries(
+  ['local', 'preview', 'production'].map((mode) => [mode, getEnvironment(mode, deploymentFixture)]),
+);
 const { local, preview, production } = Object.fromEntries(
   await Promise.all(
     Object.keys(environments).map(async (mode) => [
@@ -45,7 +50,7 @@ if (preview.workersDev !== true || preview.previewUrls !== false) {
   configurationFailure('preview_surfaces', 'Preview must use only its fixed workers.dev hostname.');
 }
 
-const productionRoute = production.domains?.includes('startree.example.com');
+const productionRoute = production.domains?.includes(deploymentFixture.production.domain);
 if (
   production.workersDev !== false ||
   production.previewUrls !== false ||
@@ -53,12 +58,12 @@ if (
 ) {
   configurationFailure(
     'production_surfaces',
-    'Production must serve only the startree.example.com custom domain.',
+    'Production must serve only the configured custom domain.',
   );
 }
 
 for (const [name, environment] of Object.entries({ local, preview, production })) {
-  const expected = getEnvironment(name);
+  const expected = getEnvironment(name, deploymentFixture);
   if (
     environment.name !== expected.name ||
     environment.env.DB.id !== expected.databaseId ||

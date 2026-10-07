@@ -15,15 +15,20 @@ Fork the repository and install dependencies with `npm ci`. Use Node.js 22.18 or
    npx cf d1 create --name startree-production
    ```
 
-3. Set `preview.databaseId` and `production.databaseId` in `cloudflare.environments.ts` to the returned UUIDs. Update the production database-ID assertion in `scripts/release-safety.test.mjs` to match. Keep the local identity unchanged. For an existing installation, reuse its database IDs.
+3. Create the private deployment file at the repository root.
 
-4. Replace the production hostname in `cloudflare.config.ts`, `scripts/verify-environments.mjs`, `scripts/release-safety.mjs`, and `scripts/release-safety.test.mjs` with a hostname in your Cloudflare zone. The checked-in remote identities belong to the original installation, not your account.
+   ```sh
+   cp deployment.example.json deployment.local.json
+   chmod 600 deployment.local.json
+   ```
+
+4. Edit `deployment.local.json`. Set `preview.databaseId` and `production.databaseId` to the returned UUIDs and `production.domain` to a hostname in your Cloudflare zone, without a scheme or path. For an existing installation, reuse its database IDs. The example is deliberately invalid for deployment. Do not edit source files or test assertions.
 
 5. Configure Access as described below before uploading the application. Keep production `workersDev: false` and `previewUrls: false` in every remote environment.
 
 6. Run `npm run deploy:preview`. Verify that unauthenticated requests cannot reach the application, then test authenticated bookmark creation, reload, and search.
 
-7. Commit your configuration and push to `origin/master` in your fork before running `npm run deploy:production`. Production requires a clean working tree and a commit already on that remote branch.
+7. Push your application commit to `origin/master` in your fork before running `npm run deploy:production`. Production requires a clean working tree and a commit already on that remote branch. Never commit `deployment.local.json`; back it up privately.
 
 Keep credentials in CLI authentication profiles, never in repository files. Database IDs are resource identifiers rather than access credentials, but can still identify your installation.
 
@@ -47,11 +52,11 @@ npm run db:migrate:local
 npm run dev:worker
 ```
 
-`cf dev --mode local` serves the built Vue client and Hono API together. Use `npm run dev` when only client hot-module replacement is needed. Run the complete local acceptance suite with `npm run verify`.
+`cf dev --mode local` serves the built Vue client and Hono API together. Use `npm run dev` when only client hot-module replacement is needed. Run the complete local acceptance suite with `npm run verify`. Local development, tests, type generation, and CI do not need `deployment.local.json`. Verification injects deterministic synthetic configuration and never reads private deployment values.
 
 ## Remote database provisioning
 
-After first-time provisioning, `cloudflare.environments.ts` pins your remote database UUIDs. Later migrations must reuse them rather than provision replacements. Preview and production names and UUIDs must remain distinct. `cf d1 migrations` takes a database UUID and `--dir ./migrations`, and preserves the existing `d1_migrations` history.
+After first-time provisioning, `deployment.local.json` pins your remote database UUIDs and production domain. Later migrations must reuse them rather than provision replacements. Preview and production names and UUIDs must remain distinct. `cf d1 migrations` takes a database UUID and `--dir ./migrations`, and preserves the existing `d1_migrations` history.
 
 ## Deployment
 
@@ -68,7 +73,7 @@ Select a non-default Cloudflare CLI authentication profile without changing the 
 CF_PROFILE=your-profile npm run deploy:preview
 ```
 
-Both repeat the complete local verification, run a non-uploading `cf deploy --dry-run`, list that environment's pending remote D1 migrations, require every migration to carry the reviewed `startree: expand-contract-compatible` declaration, apply migrations, and deploy that environment using `cf deploy`. Production additionally requires a clean working tree and a current commit already present on `origin/master`. The command prints the target and active Worker version ID. There is no default deployment command.
+Both repeat the complete local verification, run a non-uploading `cf deploy --dry-run`, list that environment's pending remote D1 migrations, require every migration to carry the reviewed `startree: expand-contract-compatible` declaration, apply migrations, and deploy that environment using `cf deploy`. Production additionally requires a clean working tree and a current commit already present on `origin/master`. The command prints the target and active Worker version ID. There is no default deployment command. Missing, malformed, placeholder, or non-isolated deployment configuration blocks deployment and D1 helpers before they start remote commands, including production's Git fetch. Run commands from the repository root.
 
 Expand/contract is mandatory: first add nullable or independently usable schema, deploy code that tolerates both shapes, backfill separately when required, and remove the old shape only after the immediately previous Worker no longer depends on it. Never combine a destructive contract step with the release that first introduces its replacement. This keeps the previous Worker usable when migration succeeds but upload fails.
 
@@ -150,7 +155,7 @@ For authentication expiry, allow the failed online request to enter Cloudflare A
 
 ## cf beta migration details
 
-The project pins `cf@1.0.0-beta.12` and its supported Wrangler build/dev adapter. All deployment, database, and type-generation entry points use `cf`. Resource settings are defined only in `cloudflare.config.ts`; the old JSONC configuration has been removed. `CF_PROFILE` selects a local authentication profile. Missing or unknown modes fail closed. Release scripts pass the Git SHA through `STARTREE_RELEASE_REVISION` for `APP_VERSION` and tag the deployed version.
+The project pins `cf@1.0.0-beta.12` and its supported Wrangler build/dev adapter. All deployment, database, and type-generation entry points use `cf`. Worker settings are defined in `cloudflare.config.ts`, with private remote identities loaded from `deployment.local.json`; the old JSONC configuration has been removed. `CF_PROFILE` selects a local authentication profile. Missing or unknown modes fail closed. Release scripts pass the Git SHA through `STARTREE_RELEASE_REVISION` for `APP_VERSION` and tag the deployed version.
 
 The beta can leave a Miniflare file watcher alive after a local D1 command completes. `scripts/cf-local.mjs` awaits the official CLI entry point, flushes output, and exits with its status; it is restricted to finite local D1 commands and is not used for deployment or dev servers. This beta implements local D1 reads through `cf d1 raw`; `scripts/cloudflare.mjs` converts its column/row response into objects. Local development uses the adapter's `.wrangler/state` persistence directory, so `db:migrate:local` explicitly targets it. Browser acceptance creates a temporary project with source/build symlinks and its own `.wrangler/state`, because the beta's dev adapter does not forward `--persist-to`. Ports come from `STARTREE_DEV_PORT` in the adapter config. No test contacts remote D1. Synthetic performance fixtures use bounded batches through the API; a failed import may leave preview partially populated and should be rerun, never used against production.
 

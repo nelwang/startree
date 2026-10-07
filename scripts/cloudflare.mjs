@@ -9,9 +9,9 @@ export const cfArgs = (
   mode,
   { profile = process.env.CF_PROFILE, locationArgs = [] } = {},
 ) => {
-  getEnvironment(mode);
   if ((mode === 'local') !== locationArgs.includes('--local'))
     throw new Error('Local mode requires local D1; remote modes must not use local storage.');
+  getEnvironment(mode);
   return [
     'cf',
     ...args,

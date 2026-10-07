@@ -31,11 +31,11 @@ export const assertExpandContractMigrations = (migrations) => {
   }
 };
 
-export const releaseSteps = (environment, revision) => {
+export const releaseSteps = (environment, revision, deploymentConfig) => {
   if (environment !== 'preview' && environment !== 'production')
     throw new Error('Deployments require preview or production mode.');
   if (!/^[a-f0-9]{7,40}$/.test(revision)) throw new Error('A Git revision is required.');
-  const databaseId = getEnvironment(environment).databaseId;
+  const databaseId = getEnvironment(environment, deploymentConfig).databaseId;
   return [
     ['npx', ['vp', 'run', 'verify']],
     ['npx', ['cf', 'deploy', '--dry-run', '--mode', environment]],
@@ -72,7 +72,8 @@ export const releaseSteps = (environment, revision) => {
   ];
 };
 
-export const releaseIdentity = (environment, deployment) => {
+export const releaseIdentity = (environment, deployment, deploymentConfig) => {
+  const config = getEnvironment(environment, deploymentConfig);
   const current = deployment.deployments?.[0] ?? deployment;
   const active = current.versions?.find(({ percentage }) => percentage === 100);
   if (!active?.version_id) {
@@ -81,7 +82,7 @@ export const releaseIdentity = (environment, deployment) => {
   return {
     target:
       environment === 'production'
-        ? 'https://startree.example.com'
+        ? `https://${config.domains[0]}`
         : 'the fixed startree-preview workers.dev URL',
     versionId: active.version_id,
   };

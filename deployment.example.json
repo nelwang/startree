@@ -1,0 +1,9 @@
+{
+  "preview": {
+    "databaseId": "YOUR_PREVIEW_D1_UUID"
+  },
+  "production": {
+    "databaseId": "YOUR_PRODUCTION_D1_UUID",
+    "domain": "startree.example.com"
+  }
+}

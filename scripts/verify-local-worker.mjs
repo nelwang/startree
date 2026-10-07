@@ -32,6 +32,7 @@ const createPersistenceDirectory = () => {
   for (const name of [
     'cloudflare.config.ts',
     'cloudflare.environments.ts',
+    'deployment.config.ts',
     'wrangler.config.ts',
     'node_modules',
     'src',
